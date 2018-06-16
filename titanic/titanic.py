@@ -57,60 +57,44 @@ def clean_data(data):
 
     return df
 
+if __name__ == '__main__':
+    # Read in the data
+    raw = pd.read_csv('train.csv')
+    raw_test = pd.read_csv('test.csv')
 
-# Read in the data
-raw = pd.read_csv('train.csv')
-raw_test = pd.read_csv('test.csv')
+    # Split into training and cross validation sets
+    train, cv = split_train_test(raw, 0.2)
 
-# Split into training and cross validation sets
-train, cv = split_train_test(raw, 0.2)
+    # Clean the data
+    clean_all = clean_data(raw)
+    clean_train = clean_data(train)
+    clean_cv = clean_data(cv)
+    clean_test = clean_data(raw_test)
 
-# Clean the data
-clean_all = clean_data(raw)
-clean_train = clean_data(train)
-clean_cv = clean_data(cv)
-clean_test = clean_data(raw_test)
+    # Pull out the labels. This is the Survived column
+    y_all = clean_all['Survived']
+    y_train = clean_train['Survived']
+    y_cv = clean_cv['Survived']
 
-# Pull out the labels. This is the Survived column
-y_all = clean_all['Survived']
-y_train = clean_train['Survived']
-y_cv = clean_cv['Survived']
+    # Pull out the features. This is every column except for Survived
+    X_all = clean_all.drop(['Survived'], axis=1)
+    X_train = clean_train.drop(['Survived'], axis=1)
+    X_cv = clean_cv.drop(['Survived'], axis=1)
 
-# Pull out the features. This is every column except for Survived
-X_all = clean_all.drop(['Survived'], axis=1)
-X_train = clean_train.drop(['Survived'], axis=1)
-X_cv = clean_cv.drop(['Survived'], axis=1)
+    # Data is prepped for training, train the model
+    print('Training model...')
+    model = GridSearchCV(RandomForestClassifier(), [{'bootstrap': [True, False], 'n_estimators': [8,10,15,20,50], 'criterion': ['gini', 'entropy'], 'max_depth': [5,10,15,20,None], 'max_features': [4,6,7]}], cv=20, verbose=1, n_jobs=4)
+    model.fit(X_train, y_train)
+    print('Done training!')
 
-# Data is prepped for training, train the model
-tree_model = DecisionTreeClassifier()
-tree_grid_model = GridSearchCV(tree_model, [{'criterion': ['gini', 'entropy'], 'splitter': ['best', 'random'], 'max_depth': [5,10,15,20,None], 'max_features': [2,4,6,7]}])
-tree_ada_model = AdaBoostClassifier(DecisionTreeClassifier(criterion='entropy', max_depth=5, max_features=7, splitter='random'))
-forest_model = RandomForestClassifier()
-forest_grid_model = GridSearchCV(forest_model, [{'bootstrap': [True, False], 'n_estimators': [2,4,6,8,10,12], 'criterion': ['gini', 'entropy'], 'max_depth': [5,10,15,20,None], 'max_features': [2,4,6,7]}])
-forest_ada_model = AdaBoostClassifier(RandomForestClassifier(bootstrap=True, criterion='gini', max_depth=5, max_features=2, n_estimators=8))
-voting_model = VotingClassifier(estimators=[('forest', forest_model), ('forest_grid', forest_grid_model), ('forest_ada', forest_ada_model), ('tree', tree_model), ('tree_grid', tree_grid_model), ('tree_ada', tree_ada_model)], voting='hard')
+    pred_cv_y = model.predict(X_cv)
+    print('Accuracy: ', accuracy_score(y_cv, pred_cv_y))
 
-best_score = -1
-best_model = tree_model
-for model in (tree_model, tree_grid_model, tree_ada_model, forest_model, forest_grid_model, forest_ada_model, voting_model):
-    model.fit(X_all, y_all)
-    y_pred = model.predict(X_all)
-    accuracy = accuracy_score(y_all, y_pred)
-    print(model.__class__.__name__, accuracy)
-    if accuracy > best_score:
-        best_score = accuracy
-        best_model = model
-
-print(tree_grid_model.best_params_)
-print(forest_grid_model.best_params_)
-
-print('Best model is ', best_model.__class__.__name__, ' with accuracy of ', best_score)
-
-# Run on test set and output to csv file
-pred_test_y = forest_grid_model.predict(clean_test)
-result = clean_test.reset_index()
-result['Survived'] = pred_test_y
-result = result[['PassengerId', 'Survived']]
-result = result.set_index('PassengerId')
-result.to_csv('result.csv')
+    # Run on test set and output to csv file
+    pred_test_y = model.predict(clean_test)
+    result = clean_test.reset_index()
+    result['Survived'] = pred_test_y
+    result = result[['PassengerId', 'Survived']]
+    result = result.set_index('PassengerId')
+    result.to_csv('result.csv')
 
