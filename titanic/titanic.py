@@ -86,16 +86,16 @@ tree_model = DecisionTreeClassifier()
 tree_grid_model = GridSearchCV(tree_model, [{'criterion': ['gini', 'entropy'], 'splitter': ['best', 'random'], 'max_depth': [5,10,15,20,None], 'max_features': [2,4,6,7]}])
 tree_ada_model = AdaBoostClassifier(DecisionTreeClassifier(criterion='entropy', max_depth=5, max_features=7, splitter='random'))
 forest_model = RandomForestClassifier()
-forest_grid_model = GridSearchCV(forest_model, [{'bootstrap': [True, False], 'n_estimators': [2,4,6,8,10,12], 'criterion': ['gini', 'entropy'], 'max_depth': [5,10,15,20,None], 'max_features': [2,4,6,7]}], cv=5, scoring='neg_mean_squared_error')
+forest_grid_model = GridSearchCV(forest_model, [{'bootstrap': [True, False], 'n_estimators': [2,4,6,8,10,12], 'criterion': ['gini', 'entropy'], 'max_depth': [5,10,15,20,None], 'max_features': [2,4,6,7]}])
 forest_ada_model = AdaBoostClassifier(RandomForestClassifier(bootstrap=True, criterion='gini', max_depth=5, max_features=2, n_estimators=8))
 voting_model = VotingClassifier(estimators=[('forest', forest_model), ('forest_grid', forest_grid_model), ('forest_ada', forest_ada_model), ('tree', tree_model), ('tree_grid', tree_grid_model), ('tree_ada', tree_ada_model)], voting='hard')
 
 best_score = -1
 best_model = tree_model
 for model in (tree_model, tree_grid_model, tree_ada_model, forest_model, forest_grid_model, forest_ada_model, voting_model):
-    model.fit(X_train, y_train)
-    y_cv_pred = model.predict(X_cv)
-    accuracy = accuracy_score(y_cv, y_cv_pred)
+    model.fit(X_all, y_all)
+    y_pred = model.predict(X_all)
+    accuracy = accuracy_score(y_all, y_pred)
     print(model.__class__.__name__, accuracy)
     if accuracy > best_score:
         best_score = accuracy
@@ -107,7 +107,7 @@ print(forest_grid_model.best_params_)
 print('Best model is ', best_model.__class__.__name__, ' with accuracy of ', best_score)
 
 # Run on test set and output to csv file
-pred_test_y = voting_model.predict(clean_test)
+pred_test_y = forest_grid_model.predict(clean_test)
 result = clean_test.reset_index()
 result['Survived'] = pred_test_y
 result = result[['PassengerId', 'Survived']]
